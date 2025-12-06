@@ -34,7 +34,41 @@ class Tokenizer:
     def decode(self, t: List[int]) -> str:
         return self.tokenizer.decode(t)
 
-class SFTData(Dataset):
+class BaseDataset(Dataset):
+    def __init__(self):
+        super().__init__()
+        self.data = None
+        self.inputs = None
+
+    def __len__(self):
+        return len(self.data)
+
+    def get_inputs(self):
+        inputs = []
+        for i in tqdm(range(len(self.data))):
+            inputs.append(self.pre(i))
+        self.inputs = inputs
+
+    def get_all(self):
+        temp = []
+        for i in range(len(self.data)):
+            temp.append(self.get_history(self.data.iloc[i]))
+        return temp
+
+    def get_inputs_list(self):
+        return self.inputs
+
+    def __getitem__(self, idx):
+        return self.inputs[idx]
+
+    def pre(self, idx):
+        raise NotImplementedError(None)
+
+    def get_history(self, row):
+        raise NotImplementedError(None)
+
+
+class SFTData(BaseDataset):
     def __init__(self, train_file, tokenizer, max_len=2048, sample=-1, test = False, seed=0, category="", K=4, dedup=False):
         self.data = pd.read_csv(train_file)
         random.seed(seed)
@@ -61,8 +95,6 @@ class SFTData(Dataset):
         f"In relation to the user's recent entertainment with a given {category}, it would be appreciated if you could curate a list of {category} that might form part of the user's previous gaming history."
         ]
         self.get_inputs()  
-    def __len__(self):
-        return len(self.data)
 
 
     def generate_example_prompt(self, data_point):
@@ -145,33 +177,9 @@ class SFTData(Dataset):
             "labels": labels[-self.max_len:],
             
         }
-    
-
-    
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            inputs.append(self.pre(i))
-            # print(inputs[-1])
-            
-        self.inputs = inputs
-    
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.data)):
-            temp.append(self.get_history(self.data.iloc[i]))
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs
-
-    def __getitem__(self, idx):
-        return self.inputs[idx]
 
 
-class D3Dataset(Dataset):
+class D3Dataset(BaseDataset):
     def __init__(self, train_file, max_len=2048, sample=-1, seed=0, category="", dedup=False):
         self.data = pd.read_csv(train_file)
         random.seed(seed)
@@ -195,15 +203,8 @@ class D3Dataset(Dataset):
         f"Bearing in mind the {category} that the user has recently been enthralled by, please construct a catalog of other {category} that the user potentially partook in beforehand.",
         f"In relation to the user's recent entertainment with a given {category}, it would be appreciated if you could curate a list of {category} that might form part of the user's previous gaming history."
         ]
-        self.get_inputs()  
-        
+        self.get_inputs()
 
-    def __len__(self):
-        return len(self.data)
-    
-    
-        
-        
     def generate_prompt(self, data_point):
         return f"""### User Input: 
 {data_point["input"]}
@@ -248,29 +249,9 @@ class D3Dataset(Dataset):
             "prompt": instruction + prompt,
             "completion": target_item,
         }
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            inputs.append(self.pre(i))
-            
-        self.inputs = inputs
-    
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.data)):
-            temp.append(self.get_history(self.data.iloc[i]))
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs
-
-    def __getitem__(self, idx):
-        return self.inputs[idx]
 
 
-class EvalD3Dataset(Dataset):
+class EvalD3Dataset(BaseDataset):
 
     def __init__(self, train_file, tokenizer, max_len=2048, sample=-1, test = False, seed=0, category="", K=4, dedup=False):
         self.data = pd.read_csv(train_file)
@@ -297,9 +278,6 @@ class EvalD3Dataset(Dataset):
         f"In relation to the user's recent entertainment with a given {category}, it would be appreciated if you could curate a list of {category} that might form part of the user's previous gaming history."
         ]
         self.get_inputs()  
-    def __len__(self):
-        return len(self.data)
-
 
     def generate_example_prompt(self, data_point):
         return f"""### Example {data_point["idx"]}:
@@ -379,32 +357,8 @@ class EvalD3Dataset(Dataset):
             "labels": labels[-self.max_len:],
             
         }
-    
 
-    
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            inputs.append(self.pre(i))
-            
-        self.inputs = inputs
-    
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.data)):
-            temp.append(self.get_history(self.data.iloc[i]))
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs
-
-    def __getitem__(self, idx):
-        return self.inputs[idx]
-    
-
-class SidDataset(Dataset):
+class SidDataset(BaseDataset):
     def __init__(self, train_file, max_len=2048, sample=-1, seed=0, category="", dedup=False):
         self.data = pd.read_csv(train_file)
         random.seed(seed)
@@ -416,11 +370,7 @@ class SidDataset(Dataset):
         self.prompt2history = {}
         self.history2target = {}
         self.get_inputs()  
-        
 
-    def __len__(self):
-        return len(self.data)
-    
     def generate_prompt(self, data_point):
         return f"""### User Input: 
 {data_point["input"]}
@@ -460,27 +410,9 @@ class SidDataset(Dataset):
             "completion": target_item,
 
         }
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            inputs.append(self.pre(i))
-            
-        self.inputs = inputs
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.data)):
-            temp.append(self.get_history(self.data.iloc[i]))
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs
 
-    def __getitem__(self, idx):
-        return self.inputs[idx]
 
-class SidSFTDataset(Dataset):
+class SidSFTDataset(BaseDataset):
     def __init__(self, train_file, tokenizer, max_len=2048, sample=-1, test=False, seed=0, category="", K=4, dedup=False):
         self.data = pd.read_csv(train_file)
         random.seed(seed)
@@ -492,10 +424,7 @@ class SidSFTDataset(Dataset):
         self.max_len = max_len
         self.category = category
         self.dedup = dedup
-        self.get_inputs()  
-    
-    def __len__(self):
-        return len(self.data)
+        self.get_inputs()
 
     def generate_prompt(self, data_point):
         return f"""### User Input: 
@@ -567,28 +496,9 @@ Can you predict the next possible item that the user may expect?
             "attention_mask": attention_mask[-self.max_len:],
             "labels": labels[-self.max_len:],
         }
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            inputs.append(self.pre(i))
-            
-        self.inputs = inputs
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.data)):
-            temp.append(self.get_history(self.data.iloc[i]))
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs
-
-    def __getitem__(self, idx):
-        return self.inputs[idx]
 
 
-class SidSFTDataset_GPR(Dataset):
+class SidSFTDataset_GPR(BaseDataset):
     def __init__(self, train_file, tokenizer, max_len=2048, sample=-1, test=False, seed=0, category="", K=4, dedup=False):
         self.data = pd.read_csv(train_file)
         random.seed(seed)
@@ -621,9 +531,6 @@ class SidSFTDataset_GPR(Dataset):
             self.item_features = {}
             
         self.get_inputs()  
-    
-    def __len__(self):
-        return len(self.data)
 
     def generate_prompt(self, data_point):
         return f"""### User Input: 
@@ -732,28 +639,9 @@ Can you predict the next possible item that the user may expect?
             "labels": labels[-self.max_len:],
             "final_value": final_value
         }
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            inputs.append(self.pre(i))
-            
-        self.inputs = inputs
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.data)):
-            temp.append(self.get_history(self.data.iloc[i]))
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs
-
-    def __getitem__(self, idx):
-        return self.inputs[idx]
 
 
-class EvalSidDataset(Dataset):
+class EvalSidDataset(BaseDataset):
 
     def __init__(self, train_file, tokenizer, max_len=2048, sample=-1, test = False, seed=0, category="", K=4, dedup=False):
         self.data = pd.read_csv(train_file)
@@ -767,9 +655,6 @@ class EvalSidDataset(Dataset):
         self.category = category
         self.dedup = dedup
         self.get_inputs()  
-    def __len__(self):
-        return len(self.data)
-
 
     def generate_example_prompt(self, data_point):
         return f"""### Example {data_point["idx"]}:
@@ -849,31 +734,9 @@ Can you predict the next possible item that the user may expect?
             "labels": labels[-self.max_len:],
             
         }
-    
 
-    
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            inputs.append(self.pre(i))
-            
-        self.inputs = inputs
-    
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.data)):
-            temp.append(self.get_history(self.data.iloc[i]))
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs
 
-    def __getitem__(self, idx):
-        return self.inputs[idx]
-
-class SidItemFeatDataset(Dataset):
+class SidItemFeatDataset(BaseDataset):
     def __init__(self, item_file, index_file, tokenizer=None, max_len=2048, sample=-1, test=False, seed=0, category=""):
         """
         Dataset for sid2title and title2sid tasks.
@@ -939,9 +802,6 @@ class SidItemFeatDataset(Dataset):
         if self.tokenizer is not None:
             self.get_inputs()
     
-    def __len__(self):
-        return len(self.data)
-    
     def generate_prompt(self, data_point):
         if data_point['task'] == 'title2sid':
             prompt = f"Which item has the title: {data_point['input']}?"
@@ -996,23 +856,9 @@ Answer the question about item identification.
             "attention_mask": attention_mask[-self.max_len:],
             "labels": labels[-self.max_len:],
         }
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            inputs.append(self.pre(i))
-        self.inputs = inputs
-    
-    def get_inputs_list(self):
-        return self.inputs if hasattr(self, 'inputs') else [self.pre(i) for i in range(len(self))]
-    
-    def __getitem__(self, idx):
-        if hasattr(self, 'inputs'):
-            return self.inputs[idx]
-        return self.pre(idx)
 
 
-class RLTitle2SidDataset(Dataset):
+class RLTitle2SidDataset(BaseDataset):
     def __init__(self, item_file, index_file, sample=-1, seed=0, category="", dedup=False):
         """
         RL-specific dataset for title2sid and description2sid tasks.
@@ -1090,9 +936,7 @@ class RLTitle2SidDataset(Dataset):
             self.data = random.sample(self.data, sample)
         
         self.get_inputs()
-    
-    def __len__(self):
-        return len(self.data)
+
     
     def generate_prompt(self, data_point):
         if data_point['task'] == 'title2sid':
@@ -1120,27 +964,9 @@ class RLTitle2SidDataset(Dataset):
             "completion": target_item,
  
         }
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            inputs.append(self.pre(i))
-        self.inputs = inputs
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.data)):
-            temp.append(self.data[i])
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs
-    
-    def __getitem__(self, idx):
-        return self.inputs[idx]
 
 
-class RLSeqTitle2SidDataset(Dataset):
+class RLSeqTitle2SidDataset(BaseDataset):
     def __init__(self, train_file, sample=-1, seed=0, category="", dedup=False):
         """
         RL-specific dataset for sequential recommendation using title sequences.
@@ -1166,9 +992,6 @@ class RLSeqTitle2SidDataset(Dataset):
         self.history2target = {}
         
         self.get_inputs()
-    
-    def __len__(self):
-        return len(self.data)
     
     def generate_prompt(self, inter_titles):
         return f"Given the title sequence of user historical interactive items: {inter_titles}, can you recommend a suitable next item for the user?"
@@ -1227,32 +1050,8 @@ class RLSeqTitle2SidDataset(Dataset):
             "completion": target,
 
         }
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            result = self.pre(i)
-            if result is not None:  # Skip None results from deduplication
-                inputs.append(result)
-        self.inputs = inputs
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.data)):
-            temp.append(self.get_history(self.data.iloc[i]))
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs if hasattr(self, 'inputs') else []
-    
-    def __getitem__(self, idx):
-        if hasattr(self, 'inputs'):
-            return self.inputs[idx]
-        result = self.pre(idx)
-        return result if result is not None else {"prompt": "", "completion": ""}
-    
 
-class RLSid2TitleDataset(Dataset):
+class RLSid2TitleDataset(BaseDataset):
     def __init__(self, item_file, index_file, sample=-1, seed=0, category="", dedup=False):
         """
         RL-specific dataset for sid2title tasks.
@@ -1306,9 +1105,6 @@ class RLSid2TitleDataset(Dataset):
         
         self.get_inputs()
     
-    def __len__(self):
-        return len(self.data)
-    
     def generate_prompt(self, data_point):
         prompt = f'What is the title of item "{data_point["input"]}"?'
         response = data_point['output']
@@ -1331,27 +1127,9 @@ class RLSid2TitleDataset(Dataset):
             "completion": target_item,
 
         }
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            inputs.append(self.pre(i))
-        self.inputs = inputs
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.data)):
-            temp.append(self.data[i])
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs
-    
-    def __getitem__(self, idx):
-        return self.inputs[idx]
-    
 
-class RLSidhis2TitleDataset(Dataset):
+
+class RLSidhis2TitleDataset(BaseDataset):
     def __init__(self, train_file, item_file, index_file, sample=-1, seed=0, category="", dedup=False):
         """
         RL-specific dataset for sequential recommendation using semantic IDs in history and outputting item titles.
@@ -1390,9 +1168,6 @@ class RLSidhis2TitleDataset(Dataset):
             self.id2title[item_id] = features['title']
         
         self.get_inputs()
-    
-    def __len__(self):
-        return len(self.data)
     
     def generate_prompt(self, data_point):
         return f"""### User Input: 
@@ -1447,32 +1222,9 @@ class RLSidhis2TitleDataset(Dataset):
             "completion": target_item,
 
         }
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            result = self.pre(i)
-            if result is not None:  # Skip None results from deduplication
-                inputs.append(result)
-        self.inputs = inputs
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.data)):
-            temp.append(self.get_history(self.data.iloc[i]))
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs if hasattr(self, 'inputs') else []
 
-    def __getitem__(self, idx):
-        if hasattr(self, 'inputs'):
-            return self.inputs[idx]
-        result = self.pre(idx)
-        return result if result is not None else {"prompt": "", "completion": ""}
-    
 
-class FusionSeqRecDataset(Dataset):
+class FusionSeqRecDataset(BaseDataset):
     def __init__(self, train_file, item_file, index_file, tokenizer, max_len=2048, sample=-1, test=False, seed=0, category="", dedup=False):
         """
         Fusion dataset combining sequence recommendation with item features.
@@ -1581,9 +1333,6 @@ class FusionSeqRecDataset(Dataset):
             # Empty list, use title
             return title
     
-    def __len__(self):
-        return len(self.data)
-    
     def generate_prompt_title(self, history):
         return f"The user has sequentially interacted with items {history}. Can you recommend the next item for him? Tell me the title of the item"
     
@@ -1685,26 +1434,9 @@ Can you recommend the next item for the user based on their interaction history?
             "attention_mask": attention_mask[-self.max_len:],
             "labels": labels[-self.max_len:],
         }
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            result = self.pre(i)
-            if result is not None:  # Skip None results from deduplication
-                inputs.append(result)
-        self.inputs = inputs
-    
-    def get_inputs_list(self):
-        return self.inputs if hasattr(self, 'inputs') else []
-    
-    def __getitem__(self, idx):
-        if hasattr(self, 'inputs'):
-            return self.inputs[idx]
-        return self.pre(idx)
 
 
-
-class TitleHistory2SidSFTDataset(Dataset):
+class TitleHistory2SidSFTDataset(BaseDataset):
     def __init__(self, train_file, item_file, index_file, tokenizer, max_len=2048, sample=-1, test=False, seed=0, category="", dedup=False):
         """
         SFT dataset that uses item titles in user history to predict next item's semantic ID.
@@ -1748,9 +1480,6 @@ class TitleHistory2SidSFTDataset(Dataset):
                 self.id2sid[item_id] = combined_sid
         
         self.get_inputs()
-    
-    def __len__(self):
-        return len(self.data)
     
     def generate_prompt(self, data_point):
         return f"""### User Input: 
@@ -1833,32 +1562,9 @@ Based on the user's historical interaction with item titles, predict the semanti
             "attention_mask": attention_mask[-self.max_len:],
             "labels": labels[-self.max_len:],
         }
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.data))):
-            result = self.pre(i)
-            if result is not None:  # Skip None results from deduplication
-                inputs.append(result)
-        self.inputs = inputs
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.data)):
-            temp.append(self.get_history(self.data.iloc[i]))
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs if hasattr(self, 'inputs') else []
-
-    def __getitem__(self, idx):
-        if hasattr(self, 'inputs'):
-            return self.inputs[idx]
-        result = self.pre(idx)
-        return result if result is not None else {"input_ids": [], "attention_mask": [], "labels": []}
 
 
-class PreferenceSFTDataset(Dataset):
+class PreferenceSFTDataset(BaseDataset):
     def __init__(self, user_preference_file, index_file, tokenizer, max_len=2048, sample=-1, test=False, seed=0, category="", dedup=False):
         """
         SFT dataset that uses user interaction history and preferences from preference file.
@@ -1955,9 +1661,6 @@ class PreferenceSFTDataset(Dataset):
         
         return matched_data
     
-    def __len__(self):
-        return len(self.matched_data)
-    
     def _convert_to_semantic_ids(self, item_ids):
         """Convert item IDs to semantic ID format using index.json"""
         semantic_ids = []
@@ -2053,32 +1756,9 @@ Analyze the user's interaction history, provide insights about their preferences
             "attention_mask": attention_mask[-self.max_len:],
             "labels": labels[-self.max_len:],
         }
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.matched_data))):
-            result = self.pre(i)
-            if result is not None:  # Skip None results from empty histories
-                inputs.append(result)
-        self.inputs = inputs
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.matched_data)):
-            temp.append(self.get_history_and_preference(self.matched_data[i]))
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs if hasattr(self, 'inputs') else []
-
-    def __getitem__(self, idx):
-        if hasattr(self, 'inputs'):
-            return self.inputs[idx]
-        result = self.pre(idx)
-        return result if result is not None else {"input_ids": [], "attention_mask": [], "labels": []}
 
 
-class UserPreference2sidSFTDataset(Dataset):
+class UserPreference2sidSFTDataset(BaseDataset):
     def __init__(self, user_preference_file, index_file, tokenizer, max_len=2048, sample=-1, test=False, seed=0, category="", dedup=False):
         """
         SFT dataset that uses user interaction history with preferences to predict next item's semantic ID.
@@ -2176,9 +1856,6 @@ class UserPreference2sidSFTDataset(Dataset):
         
         return matched_data
     
-    def __len__(self):
-        return len(self.matched_data)
-    
     def _convert_to_semantic_ids(self, item_ids):
         """Convert item IDs to semantic ID format using index.json"""
         semantic_ids = []
@@ -2272,26 +1949,3 @@ Based on the user interaction history and preference analysis, predict the next 
             "attention_mask": attention_mask[-self.max_len:],
             "labels": labels[-self.max_len:],
         }
-    
-    def get_inputs(self):
-        inputs = []
-        for i in tqdm(range(len(self.matched_data))):
-            result = self.pre(i)
-            if result is not None:  # Skip None results from empty histories or missing targets
-                inputs.append(result)
-        self.inputs = inputs
-    
-    def get_all(self):
-        temp = []
-        for i in range(len(self.matched_data)):
-            temp.append(self.get_input_and_target(self.matched_data[i]))
-        return temp
-    
-    def get_inputs_list(self):
-        return self.inputs if hasattr(self, 'inputs') else []
-
-    def __getitem__(self, idx):
-        if hasattr(self, 'inputs'):
-            return self.inputs[idx]
-        result = self.pre(idx)
-        return result if result is not None else {"input_ids": [], "attention_mask": [], "labels": []}
