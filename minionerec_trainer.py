@@ -488,6 +488,8 @@ class ReReTrainer(Trainer):
                     eos_token_id=processing_class.eos_token_id,
                     top_k=None,
                     top_p=None,
+                    temperature=self.temperature,
+                    do_sample=True,
                     # temperature=self.temperature,
                     # do_sample=True, # if self.temperature > 1.0 else False,
                 )
